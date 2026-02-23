@@ -88,7 +88,7 @@
                     style="background: #8fbc8f; color: #fff; padding: 2px 5px; border-radius: 5px; font-size: 0.8rem; margin-left: 5px;"
                     title="Amis uniquement">👯‍♀️ Amis</span>
                 {% endif %}
-                <span class="post-date" style="margin-left: 10px;">{{ post['created_at'] }}</span>
+                <span class="post-date" style="margin-left: 10px;">{{ post['created_at'] | timeago }}</span>
             </div>
         </div>
 
@@ -120,7 +120,7 @@
                         <span class="status-indicator" title="{{ comment['author_status']['label'] }}">{{
                             comment['author_status']['color'] }}</span>
                     </strong>
-                    <span style="font-size: 0.8rem; color: #888;">{{ comment['created_at'] }}</span>
+                    <span style="font-size: 0.8rem; color: #888;">{{ comment['created_at'] | timeago }}</span>
                 </div>
                 <div style="margin-top: 5px;">{{ comment['content'] | safe }}</div>
                 <div class="comment-actions">

@@ -117,7 +117,7 @@ def init_db():
         'admin', 
         'Tessia ✨', 
         'Hi! I\'m Tessia 💖 Welcome to my personal space on the internet.\nMood: ~ dreamy ~ ☁️✨',
-        'https://i.pinimg.com/736x/21/e2/0a/21e20a2e76f6ae8589c381f9b3bba2a2.jpg',
+        'https://i.pinimg.com/736x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg',
         'https://open.spotify.com/embed/playlist/5V57uxsKcP7yiJCMhUxMZr?utm_source=generator' # Warm playlist override
     ))
     

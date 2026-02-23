@@ -60,15 +60,73 @@
 
         <!-- Chat Header -->
         <div
-            style="padding: 15px; border-bottom: 2px dashed var(--border-color); display: flex; align-items: center; gap: 15px; background: var(--secondary-bg); color: #fff;">
-            <img src="{{ active_chat_user['profile_picture'] }}" alt="avatar"
-                style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid #fff;">
-            <div>
-                <a href="{{ url_for('public_profile', username=active_chat_user['username']) }}"
-                    style="color: #fff; font-weight: bold; text-decoration: none; font-size: 1.2rem;">{{
-                    active_chat_user['display_name'] }}</a>
-                <div style="font-size: 0.8rem; opacity: 0.9;">{{ active_chat_user['status']['label'] }} {{
-                    active_chat_user['status']['color'] }}</div>
+            style="padding: 15px; border-bottom: 2px dashed var(--border-color); display: flex; align-items: center; justify-content: space-between; background: var(--secondary-bg); color: #fff;">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <img src="{{ active_chat_user['profile_picture'] }}" alt="avatar"
+                    style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid #fff;">
+                <div>
+                    <a href="{{ url_for('public_profile', username=active_chat_user['username']) }}"
+                        style="color: #fff; font-weight: bold; text-decoration: none; font-size: 1.2rem;">{{
+                        active_chat_user['display_name'] }}</a>
+                    <div style="font-size: 0.8rem; opacity: 0.9;">{{ active_chat_user['status']['label'] }} {{
+                        active_chat_user['status']['color'] }}</div>
+                </div>
+            </div>
+
+            <!-- Search and Settings -->
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <form method="GET" action="{{ url_for('messages', chat_username=active_chat_user['username']) }}"
+                    style="display: flex;">
+                    <input type="text" name="q" placeholder="Rechercher..." value="{{ search_query }}"
+                        style="padding: 5px 10px; border-radius: 15px; border: 1px solid var(--border-color); font-size: 0.8rem;">
+                    <button type="submit"
+                        style="background: none; border: none; cursor: pointer; color: #fff;">🔍</button>
+                    {% if search_query %}
+                    <a href="{{ url_for('messages', chat_username=active_chat_user['username']) }}"
+                        style="color: #fff; text-decoration: none; font-size: 0.8rem; margin-left: 5px; line-height: 2;">❌</a>
+                    {% endif %}
+                </form>
+
+                <button onclick="document.getElementById('settings-modal').style.display='flex'"
+                    style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #fff;"
+                    title="Paramètres de discussion">⚙️</button>
+            </div>
+        </div>
+
+        <!-- Chat Settings Modal -->
+        <div id="settings-modal"
+            style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+            <div class="myspace-box profile-box" style="width: 400px; max-width: 90%;">
+                <h3
+                    style="margin-top: 0; border-bottom: 2px dashed var(--border-color); padding-bottom: 10px; display: flex; justify-content: space-between;">
+                    Paramètres de discussion
+                    <button type="button" onclick="document.getElementById('settings-modal').style.display='none'"
+                        style="background: none; border: none; cursor: pointer;">❌</button>
+                </h3>
+                <form method="POST"
+                    action="{{ url_for('update_conversation_settings', chat_username=active_chat_user['username']) }}">
+                    <div class="form-group">
+                        <label for="nickname">Surnom pour {{ active_chat_user['username'] }}</label>
+                        <input type="text" name="nickname" id="nickname" value="{{ my_settings.get('nickname', '') }}"
+                            placeholder="Laisse vide pour afficher son vrai nom">
+                    </div>
+
+                    <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" name="show_read_receipts" id="show_read_receipts" value="1" {% if
+                            my_settings.get('show_read_receipts', 1) %}checked{% endif %}>
+                        <label for="show_read_receipts" style="margin: 0;">Envoyer des confirmations de lecture
+                            (Vu)</label>
+                    </div>
+
+                    <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" name="ephemeral_mode" id="ephemeral_mode" value="1" {% if
+                            my_settings.get('ephemeral_mode', 0) %}checked{% endif %}>
+                        <label for="ephemeral_mode" style="margin: 0;">Mode Éphémère (effacer dans 24h)</label>
+                    </div>
+
+                    <button type="submit" class="cute-btn" style="width: 100%; margin-top: 15px;">Enregistrer
+                        💖</button>
+                </form>
             </div>
         </div>
 
@@ -87,7 +145,12 @@
                     style="background: var(--accent-color); color: #fff; padding: 10px 15px; border-radius: 15px 15px 0 15px; box-shadow: 0px 2px 5px rgba(0,0,0,0.1);">
                     {{ msg['content'] | safe }}
                 </div>
-                <div style="font-size: 0.7rem; color: #aaa; text-align: right; margin-top: 5px;">{{ msg['created_at'] }}
+                <div style="font-size: 0.7rem; color: #aaa; text-align: right; margin-top: 5px;">{{ msg['created_at'] |
+                    timeago }}
+                    {% if msg.get('show_vu') %}
+                    <span style="margin-left: 5px; color: var(--accent-color); font-weight: bold;"
+                        title="Vu par {{ active_chat_user['display_name'] }}">✓ Vu</span>
+                    {% endif %}
                 </div>
             </div>
             {% else %}
@@ -100,7 +163,8 @@
                         style="background: #f0f0f0; color: var(--text-color); padding: 10px 15px; border-radius: 15px 15px 15px 0; box-shadow: 0px 2px 5px rgba(0,0,0,0.05);">
                         {{ msg['content'] | safe }}
                     </div>
-                    <div style="font-size: 0.7rem; color: #aaa; margin-top: 5px;">{{ msg['created_at'] }}</div>
+                    <div style="font-size: 0.7rem; color: #aaa; margin-top: 5px;">{{ msg['created_at'] | timeago }}
+                    </div>
                 </div>
             </div>
             {% endif %}

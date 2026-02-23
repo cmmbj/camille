@@ -42,6 +42,47 @@ def update_last_active():
         conn.commit()
         conn.close()
 
+@app.template_filter('timeago')
+def timeago_filter(dt_str):
+    if not dt_str:
+        return ""
+    try:
+        # SQLite CURRENT_TIMESTAMP format: 'YYYY-MM-DD HH:MM:SS'
+        dt = datetime.strptime(dt_str, '%Y-%m-%d %H:%M:%S')
+        now = datetime.utcnow()
+        diff = now - dt
+        
+        if diff.days == 0:
+            if diff.seconds < 60:
+                return "à l'instant"
+            elif diff.seconds < 3600:
+                mins = diff.seconds // 60
+                return f"il y a {mins} min"
+            else:
+                hours = diff.seconds // 3600
+                return f"il y a {hours}h"
+        elif diff.days == 1:
+            return "hier"
+        elif diff.days < 7:
+            return f"il y a {diff.days} jours"
+        elif diff.days < 30:
+            weeks = diff.days // 7
+            if weeks == 1:
+                return "il y a 1 semaine"
+            return f"il y a {weeks} semaines"
+        elif diff.days < 365:
+            months = diff.days // 30
+            if months == 1:
+                return "il y a 1 mois"
+            return f"il y a {months} mois"
+        else:
+            years = diff.days // 365
+            if years == 1:
+                return "il y a 1 an"
+            return f"il y a {years} ans"
+    except Exception:
+        return dt_str
+
 def get_user_status(last_active_str):
     """Determine Online/Away/Offline based on last_active timestamp string from DB"""
     if not last_active_str:
@@ -204,7 +245,7 @@ def register():
             flash('Nom d\'utilisateur et mot de passe requis.')
         else:
             hashed_pw = generate_password_hash(password)
-            default_pfp = 'https://i.pinimg.com/736x/8f/a4/09/8fa409411bc23f11d1efd7065cb59981.jpg' # Cute default
+            default_pfp = 'https://i.pinimg.com/736x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg' # Global default
             
             conn.execute('''
                 INSERT INTO users (username, password, role, display_name, profile_picture) 
@@ -579,6 +620,8 @@ def messages(chat_username):
     
     active_chat_user = None
     chat_messages = []
+    my_settings = {}
+    search_query = request.args.get('q', '').strip()
     
     if chat_username:
         active_chat_user = conn.execute('SELECT * FROM users WHERE username = ?', (chat_username,)).fetchone()
@@ -586,7 +629,6 @@ def messages(chat_username):
         if active_chat_user:
             active_chat_user_dict = dict(active_chat_user)
             active_chat_user_dict['status'] = get_user_status(active_chat_user_dict.get('last_active'))
-            active_chat_user = active_chat_user_dict
             
             # Verify friendship to allow chatting
             is_friend = any(f['id'] == active_chat_user['id'] for f in friends)
@@ -595,6 +637,30 @@ def messages(chat_username):
                 flash("Vous ne pouvez discuter qu'avec vos amis.")
                 return redirect(url_for('messages'))
                 
+            # --- V7: conversation settings ---
+            # My settings
+            my_settings = conn.execute('SELECT * FROM conversation_settings WHERE user_id = ? AND friend_id = ?', (user_id, active_chat_user['id'])).fetchone()
+            if not my_settings:
+                conn.execute('INSERT INTO conversation_settings (user_id, friend_id) VALUES (?, ?)', (user_id, active_chat_user['id']))
+                conn.commit()
+                my_settings = conn.execute('SELECT * FROM conversation_settings WHERE user_id = ? AND friend_id = ?', (user_id, active_chat_user['id'])).fetchone()
+            my_settings = dict(my_settings)
+
+            # Their settings
+            their_settings = conn.execute('SELECT * FROM conversation_settings WHERE user_id = ? AND friend_id = ?', (active_chat_user['id'], user_id)).fetchone()
+            if not their_settings:
+                conn.execute('INSERT INTO conversation_settings (user_id, friend_id) VALUES (?, ?)', (active_chat_user['id'], user_id))
+                conn.commit()
+                their_settings = conn.execute('SELECT * FROM conversation_settings WHERE user_id = ? AND friend_id = ?', (active_chat_user['id'], user_id)).fetchone()
+            their_settings = dict(their_settings)
+
+            # Resolve nickname
+            if my_settings.get('nickname'):
+                active_chat_user_dict['display_name'] = my_settings['nickname']
+            
+            active_chat_user = active_chat_user_dict
+            ephemeral = my_settings.get('ephemeral_mode') or their_settings.get('ephemeral_mode')
+            
             if request.method == 'POST':
                 content = request.form.get('content', '').strip()
                 if content:
@@ -610,19 +676,69 @@ def messages(chat_username):
             conn.commit()
             
             # Fetch conversation
-            messages_data = conn.execute('''
+            query = '''
                 SELECT m.*, u.username as sender_name, u.profile_picture as sender_pfp
                 FROM messages m
                 JOIN users u ON m.sender_id = u.id
-                WHERE (m.sender_id = ? AND m.receiver_id = ?) 
-                   OR (m.sender_id = ? AND m.receiver_id = ?)
-                ORDER BY m.created_at ASC
-            ''', (user_id, active_chat_user['id'], active_chat_user['id'], user_id)).fetchall()
+                WHERE ((m.sender_id = ? AND m.receiver_id = ?) 
+                   OR (m.sender_id = ? AND m.receiver_id = ?))
+            '''
+            params = [user_id, active_chat_user['id'], active_chat_user['id'], user_id]
+
+            if ephemeral:
+                query += " AND m.created_at >= datetime('now', '-1 day')"
+            
+            if search_query:
+                query += " AND m.content LIKE ?"
+                params.append(f'%{search_query}%')
+                
+            query += " ORDER BY m.created_at ASC"
+            
+            messages_data = conn.execute(query, params).fetchall()
             chat_messages = [dict(m) for m in messages_data]
+            
+            if chat_messages and their_settings.get('show_read_receipts'):
+                last_msg = chat_messages[-1]
+                if last_msg['sender_id'] == user_id and last_msg['is_read']:
+                    last_msg['show_vu'] = True
             
     conn.close()
     
-    return render_template('messages.html', friends=friends, active_chat_user=active_chat_user, messages=chat_messages)
+    return render_template('messages.html', friends=friends, active_chat_user=active_chat_user, messages=chat_messages, my_settings=my_settings, search_query=search_query)
+
+@app.route('/messages/<chat_username>/settings', methods=['POST'])
+def update_conversation_settings(chat_username):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+        
+    conn = get_db_connection()
+    user_id = session['user_id']
+    friend = conn.execute('SELECT id FROM users WHERE username = ?', (chat_username,)).fetchone()
+    if not friend:
+        conn.close()
+        return redirect(url_for('messages'))
+        
+    nickname = request.form.get('nickname', '').strip()
+    show_read_receipts = 1 if request.form.get('show_read_receipts') else 0
+    ephemeral_mode = 1 if request.form.get('ephemeral_mode') else 0
+    
+    settings = conn.execute('SELECT id FROM conversation_settings WHERE user_id = ? AND friend_id = ?', (user_id, friend['id'])).fetchone()
+    if settings:
+        conn.execute('''
+            UPDATE conversation_settings
+            SET nickname = ?, show_read_receipts = ?, ephemeral_mode = ?
+            WHERE id = ?
+        ''', (nickname if nickname else None, show_read_receipts, ephemeral_mode, settings['id']))
+    else:
+        conn.execute('''
+            INSERT INTO conversation_settings (user_id, friend_id, nickname, show_read_receipts, ephemeral_mode)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (user_id, friend['id'], nickname if nickname else None, show_read_receipts, ephemeral_mode))
+        
+    conn.commit()
+    conn.close()
+    flash('Paramètres de discussion mis à jour !')
+    return redirect(url_for('messages', chat_username=chat_username))
 
 if __name__ == '__main__':
     app.run(debug=True)

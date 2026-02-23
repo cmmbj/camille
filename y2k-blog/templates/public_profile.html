@@ -123,7 +123,7 @@
                             style="background: #8fbc8f; color: #fff; padding: 2px 5px; border-radius: 5px; font-size: 0.8rem; margin-left: 5px;"
                             title="Amis uniquement">👯‍♀️ Amis</span>
                         {% endif %}
-                        <span class="post-date" style="margin-left: 10px;">{{ post['created_at'] }}</span>
+                        <span class="post-date" style="margin-left: 10px;">{{ post['created_at'] | timeago }}</span>
                     </div>
                 </div>
 
