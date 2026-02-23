@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ user['display_name'] }} - Tessia's Space{% endblock %}
+
+{% block content %}
+<div class="split-layout">
+    <!-- Left Column: Profile Info -->
+    <div class="left-col">
+        <div class="myspace-box profile-box" style="text-align: center;">
+            <h2 class="myspace-title">✨ {{ user['display_name'] }}'s Profile ✨</h2>
+            <i>@{{ user['username'] }}</i>
+
+            <!-- Profile Picture and Status -->
+            <div style="position: relative; display: inline-block; margin-top: 15px;">
+                {% if user['status_note'] %}
+                <div class="status-bubble-container">
+                    <div class="status-bubble">{{ user['status_note'] }}</div>
+                </div>
+                {% endif %}
+                <img src="{{ user['profile_picture'] }}" alt="Profile Picture" class="avatar"
+                    style="width: 150px; height: 150px; object-fit: cover; border-radius: 10px; border: 2px solid var(--border-color);">
+                <div style="margin-top: 10px;">
+                    <span class="status-indicator" title="{{ user['status']['label'] }}">{{ user['status']['color']
+                        }}</span>
+                    <strong>{{ user['status']['label'] }}</strong>
+                </div>
+            </div>
+
+            <!-- Bio Section -->
+            <div class="bio-section"
+                style="margin-top: 20px; text-align: left; background: rgba(255,255,255,0.4); padding: 10px; border-radius: 5px;">
+                <h4 style="margin-top: 0; color: var(--accent-color);">About me:</h4>
+                <p style="white-space: pre-line; margin: 0;">{{ user['bio'] }}</p>
+            </div>
+
+            <!-- Interaction Buttons -->
+            {% if session.get('user_id') and session['user_id'] != user['id'] %}
+            <div style="margin-top: 20px; padding-top: 15px; border-top: 1px dashed var(--border-color);">
+                {% if relationship == 'none' %}
+                <form action="{{ url_for('add_friend', target_id=user['id']) }}" method="POST" style="display:inline;">
+                    <button type="submit" class="cute-btn">💖 Ajouter en ami</button>
+                </form>
+                {% elif relationship == 'request_sent' %}
+                <button class="cute-btn" disabled style="opacity: 0.7;">⏳ Demande envoyée</button>
+                {% elif relationship == 'request_received' %}
+                <form action="{{ url_for('accept_friend', target_id=user['id']) }}" method="POST"
+                    style="display:inline;">
+                    <button type="submit" class="action-btn liked">✨ Accepter</button>
+                </form>
+                {% elif relationship == 'friends' %}
+                <button class="cute-btn" disabled style="background-color: #8fbc8f;">👯‍♀️ Amis !</button>
+                <form action="{{ url_for('remove_friend', target_id=user['id']) }}" method="POST"
+                    style="display:inline;">
+                    <button type="submit" class="action-btn" onclick="return confirm('Retirer des amis ?')">💔
+                        Retirer</button>
+                </form>
+                <br><br>
+                <a href="{{ url_for('messages') }}" class="cute-btn" style="text-decoration: none;">💌 Envoyer un DM</a>
+                {% elif relationship == 'blocked' %}
+                <form action="{{ url_for('unblock_user', target_id=user['id']) }}" method="POST"
+                    style="display:inline;">
+                    <button type="submit" class="action-btn">🔓 Débloquer</button>
+                </form>
+                {% endif %}
+
+                {% if relationship != 'blocked' %}
+                <br><br>
+                <form action="{{ url_for('block_user', target_id=user['id']) }}" method="POST" style="display:inline;">
+                    <button type="submit" class="action-btn" style="color: #c0392b; border-color: #c0392b;"
+                        onclick="return confirm('Bloquer cet utilisateur ? Tu ne verras plus ses posts.')">🚫
+                        Bloquer</button>
+                </form>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Music embed -->
+            {% if user['music_link'] %}
+            <div class="music-player" style="margin-top: 20px;">
+                <h4 style="margin-bottom: 5px; color: var(--accent-color);">🎵 Now playing 🎵</h4>
+                {% if 'spotify' in user['music_link'] %}
+                <iframe style="border-radius:12px" src="{{ user['music_link'] }}" width="100%" height="152"
+                    frameBorder="0" allowfullscreen=""
+                    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                    loading="lazy"></iframe>
+                {% else %}
+                <a href="{{ user['music_link'] }}" target="_blank" class="cute-btn"
+                    style="text-decoration: none;">Listen to my track! 🎧</a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Right Column: User's Posts -->
+    <div class="right-col">
+        <div class="myspace-box feed-box">
+            <h2>🎀 {{ user['display_name'] }}'s Posts 🎀</h2>
+
+            {% if not posts %}
+            <p style="text-align: center; font-style: italic;">No posts yet! 🌸</p>
+            {% else %}
+            {% for post in posts %}
+            <div class="post">
+                <div class="post-header">
+                    <div class="post-author">
+                        <img src="{{ post['profile_picture'] }}" alt="avatar"
+                            style="width: 30px; height: 30px; object-fit: cover;">
+                        {{ post['display_name'] }}
+                        <span style="font-weight: normal; font-size: 0.8rem;">(@{{ post['username'] }})</span>
+                    </div>
+                    <span class="post-date">{{ post['created_at'] }}</span>
+                </div>
+
+                <div class="post-content">
+                    {{ post['content'] | safe }}
+                </div>
+            </div>
+            {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Tessia's Space{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="icon" type="image/png"
+        href="https://i.pinimg.com/originals/9f/fa/b2/9ffab2ed80f68d60cabe4da622839b22.png">
+</head>
+
+<body>
+    <div class="sparkle-bg"></div>
+
+    <header>
+        <h1 class="logo">✨ Tessia's Diary ✨</h1>
+        <nav>
+            <a href="{{ url_for('index') }}">Home</a>
+
+            {% if session.get('user_id') %}
+            <a href="{{ url_for('new_post') }}">New Post</a>
+            <a href="{{ url_for('edit_profile') }}">Edit Profile</a>
+            <a href="{{ url_for('messages') }}">Messages</a>
+            <a href="{{ url_for('logout') }}">Logout ({{ session.get('username') }})</a>
+            {% else %}
+            <a href="{{ url_for('login') }}">Login</a>
+            <a href="{{ url_for('register') }}">Register</a>
+            {% endif %}
+        </nav>
+    </header>
+
+    <div class="container">
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <ul class="flashes">
+            {% for message in messages %}
+            <li>{{ message }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+        {% endwith %}
+
+        <main>
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</body>
+
+</html>

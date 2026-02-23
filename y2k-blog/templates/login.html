@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block title %}Login - Tessia's Diary{% endblock %}
+
+{% block content %}
+<div class="myspace-box login-box" style="max-width: 400px; margin: 0 auto; text-align: center;">
+    <h2>🔐 Sign In 🎀</h2>
+
+    <p style="font-size: 0.9rem; color: #ff69b4; margin-bottom: 20px;">
+        <em>Welcome to my secret diary!</em> <br>
+        <small>Admin: admin/password | Guest: invité/password</small>
+    </p>
+
+    <form method="POST" action="">
+        <div class="form-group">
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" required placeholder="Who are you?">
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required placeholder="Shh! Secret!">
+        </div>
+
+        <button type="submit" class="cute-btn">Let Me In! ✨</button>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block title %}Register - Tessia's Diary{% endblock %}
+
+{% block content %}
+<div class="myspace-box login-box" style="max-width: 400px; margin: 0 auto; text-align: center;">
+    <h2>🌸 Join the Diary 🌸</h2>
+
+    <p style="font-size: 0.9rem; color: #ff69b4; margin-bottom: 20px;">
+        <em>Create your own profile and start posting!</em>
+    </p>
+
+    <form method="POST" action="">
+        <div class="form-group">
+            <label for="username">Username (for login):</label>
+            <input type="text" id="username" name="username" required placeholder="cool_kid_05">
+        </div>
+
+        <div class="form-group">
+            <label for="display_name">Display Name (public):</label>
+            <input type="text" id="display_name" name="display_name" placeholder="Cool Kid ✨">
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required placeholder="Shh! Secret!">
+        </div>
+
+        <button type="submit" class="cute-btn">Let's Go! 💖</button>
+    </form>
+
+    <div style="margin-top: 20px; font-size: 0.9rem;">
+        <a href="{{ url_for('login') }}">Already have an account? Login here.</a>
+    </div>
+</div>
+{% endblock %}

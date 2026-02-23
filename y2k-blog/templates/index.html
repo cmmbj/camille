@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+
+{% block title %}Feed - Tessia's Diary{% endblock %}
+
+{% block content %}
+<!-- Main Profile Section -->
+{% if profile_user %}
+<div class="myspace-box profile-box"
+    style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; border-color: var(--border-color);">
+    <div style="text-align: center; flex: 0 0 150px;">
+        <div class="pfp-container">
+            <img src="{{ profile_user['profile_picture'] }}" alt="Profile Picture"
+                style="width: 150px; height: 150px; object-fit: cover; border-radius: 50%; border: 4px dashed var(--border-color);">
+            {% if profile_user['status_note'] %}
+            <div class="pfp-note-bubble">{{ profile_user['status_note'] }}</div>
+            {% endif %}
+        </div>
+        <h2 style="margin-top: 10px; margin-bottom: 0;">{{ profile_user['display_name'] }}</h2>
+        <span style="font-size: 0.8rem; color: var(--accent-color);">
+            @{{ profile_user['username'] }}
+            {% if profile_status %}
+            <span class="status-indicator" title="{{ profile_status['label'] }}">{{ profile_status['color'] }}</span>
+            {% endif %}
+        </span>
+    </div>
+
+    <div style="flex: 1 1 200px; min-width: 200px;">
+        <h3 style="margin-top: 0;">🌸 About Me 🌸</h3>
+        <p style="white-space: pre-wrap;">{{ profile_user['bio'] }}</p>
+    </div>
+
+    {% if profile_user['music_link'] %}
+    <div
+        style="flex: 1 1 300px; min-width: 260px; background: var(--secondary-bg); padding: 15px; border-radius: 10px; border: 2px solid var(--border-color);">
+        <div
+            style="margin-bottom: 10px; font-weight: bold; font-family: 'VT323', monospace; font-size: 1.2rem; text-align: center;">
+            🎵 Now playing 🎵</div>
+        <!-- Try to embed standard Spotify iframe if it's a Spotify link, otherwise just show link -->
+        {% if 'spotify' in profile_user['music_link'] %}
+        <iframe data-testid="embed-iframe" style="border-radius:12px" src="{{ profile_user['music_link'] }}"
+            width="100%" height="352" frameBorder="0" allowfullscreen=""
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
+        {% elif 'youtube' in profile_user['music_link'] or 'youtu.be' in profile_user['music_link'] %}
+        <div style="text-align: center;">
+            <a href="{{ profile_user['music_link'] }}" target="_blank" class="cute-btn"
+                style="text-decoration: none; display: inline-block;">▶️ Play on YouTube</a>
+        </div>
+        {% else %}
+        <div style="text-align: center;">
+            <a href="{{ profile_user['music_link'] }}" target="_blank">Listen to my track! 🎧</a>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Post Feed Section -->
+<div class="myspace-box feed-box">
+    <h2>🎀 Latest Updates 🎀</h2>
+
+    {% if not posts %}
+    <p style="text-align: center; font-style: italic;">No posts yet! Tell the admin to write something cute.</p>
+    {% else %}
+    {% for post in posts %}
+    <div class="post">
+        <div class="post-header">
+            <div class="post-author">
+                <img src="{{ post['profile_picture'] }}" alt="avatar"
+                    style="width: 30px; height: 30px; object-fit: cover;">
+                <a href="{{ url_for('public_profile', username=post['username']) }}"
+                    style="text-decoration: none; color: inherit; font-weight: bold;">{{ post['display_name'] }}</a>
+                <span class="status-indicator" title="{{ post['author_status']['label'] }}">{{
+                    post['author_status']['color'] }}</span>
+                <span style="font-weight: normal; font-size: 0.8rem;">(@{{ post['username'] }})</span>
+            </div>
+            <span class="post-date">{{ post['created_at'] }}</span>
+        </div>
+
+        <!-- Display Markdown-rendered content safely -->
+        <div class="post-content">
+            {{ post['content'] | safe }}
+        </div>
+
+        <!-- Actions: Like Post -->
+        <div style="margin-top: 10px; margin-bottom: 10px;">
+            <form action="{{ url_for('toggle_like', item_type='post', item_id=post['id']) }}" method="POST"
+                style="display:inline;">
+                <button type="submit" class="action-btn {% if post['current_user_liked'] %}liked{% endif %}">
+                    {% if post['current_user_liked'] %}💖{% else %}🤍{% endif %} Like ({{ post['likes'] }})
+                </button>
+            </form>
+        </div>
+
+        <!-- Comments Section -->
+        <div class="comments-section">
+            <h4 style="margin-top: 0; color: var(--accent-color);">Comments ({{ post['comments'] | length }})</h4>
+
+            {% for comment in post['comments'] %}
+            <div class="comment">
+                <div class="comment-header">
+                    <strong>
+                        <a href="{{ url_for('public_profile', username=comment['username']) }}"
+                            style="text-decoration: none; color: inherit;">{{ comment['display_name'] }}</a>
+                        <span class="status-indicator" title="{{ comment['author_status']['label'] }}">{{
+                            comment['author_status']['color'] }}</span>
+                    </strong>
+                    <span style="font-size: 0.8rem; color: #888;">{{ comment['created_at'] }}</span>
+                </div>
+                <div style="margin-top: 5px;">{{ comment['content'] | safe }}</div>
+                <div class="comment-actions">
+                    <form action="{{ url_for('toggle_like', item_type='comment', item_id=comment['id']) }}"
+                        method="POST" style="display:inline;">
+                        <button type="submit" class="action-btn {% if comment['current_user_liked'] %}liked{% endif %}"
+                            style="padding: 2px 6px; font-size: 0.8rem;">
+                            {% if comment['current_user_liked'] %}💖{% else %}🤍{% endif %} ({{ comment['likes'] }})
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+
+            <!-- Add Comment Form -->
+            {% if session.get('user_id') %}
+            <form action="{{ url_for('add_comment', post_id=post['id']) }}" method="POST" class="comment-form">
+                <input type="text" name="content" placeholder="Write a comment..." required
+                    style="padding: 8px; font-size: 0.9rem;">
+                <button type="submit" class="cute-btn" style="padding: 8px 15px; font-size: 0.9rem;">Send</button>
+            </form>
+            {% else %}
+            <div style="margin-top: 10px; font-size: 0.9rem; font-style: italic;">
+                <a href="{{ url_for('login') }}">Log in</a> to comment!
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+</div>
+{% endblock %}

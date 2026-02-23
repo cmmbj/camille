@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Profile - Tessia's Diary{% endblock %}
+
+{% block content %}
+<div class="myspace-box" style="max-width: 600px; margin: 0 auto;">
+    <h2>🎨 Customize Your Profile ✨</h2>
+
+    <form method="POST" action="">
+        <div class="form-group">
+            <label for="username">Username (@pseudo):</label>
+            <input type="text" id="username" name="username" value="{{ user['username'] }}" required>
+            <small style="color: var(--accent-color);">Must be unique. Changing this changes your login pseudo!</small>
+        </div>
+
+        <div class="form-group">
+            <label for="display_name">Display Name:</label>
+            <input type="text" id="display_name" name="display_name" value="{{ user['display_name'] or '' }}" required>
+        </div>
+
+        <div class="form-group">
+            <label for="status_note">Status Note (PFP Bubble):</label>
+            <input type="text" id="status_note" name="status_note" value="{{ user['status_note'] or '' }}"
+                placeholder="Ex: Chilling at home 😴" maxlength="50">
+        </div>
+
+        <div class="form-group">
+            <label for="profile_picture">Profile Picture URL (must be direct link):</label>
+            <input type="text" id="profile_picture" name="profile_picture" value="{{ user['profile_picture'] or '' }}"
+                placeholder="https://i.pinimg.com/xyz.jpg">
+            {% if user['profile_picture'] %}
+            <div style="margin-top: 10px;">
+                <small>Current:</small><br>
+                <img src="{{ user['profile_picture'] }}"
+                    style="width: 100px; height: 100px; border-radius: 50%; border: 3px dashed var(--border-color);">
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="bio">Bio / Mood:</label>
+            <textarea id="bio" name="bio" rows="4">{{ user['bio'] or '' }}</textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="music_link">Spotify/Music Embed Link (Optional):</label>
+            <small style="display: block; margin-bottom: 5px; color: #ff69b4;">Paste the full Spotify Embed URL or leave
+                blank.</small>
+            <input type="text" id="music_link" name="music_link" value="{{ user['music_link'] or '' }}"
+                placeholder="https://open.spotify.com/embed/track/...">
+        </div>
+
+        <button type="submit" class="cute-btn">Save Profile 💖</button>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+
+{% block title %}Messages - Tessia's Diary{% endblock %}
+
+{% block content %}
+<div class="myspace-box profile-box">
+    <h2 style="text-align: center;">💌 My Messages 💌</h2>
+
+    <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-top: 20px;">
+        <!-- Left Column: Send Message Form -->
+        <div
+            style="flex: 1; min-width: 300px; background: var(--secondary-bg); padding: 15px; border-radius: 10px; border: 2px dashed var(--border-color);">
+            <h3>Send a Message</h3>
+            <form method="POST">
+                <div class="form-group">
+                    <label for="receiver_username">To: @username</label>
+                    <input type="text" id="receiver_username" name="receiver_username" required
+                        placeholder="Enter username here...">
+                </div>
+                <div class="form-group">
+                    <label for="content">Message</label>
+                    <textarea id="content" name="content" required
+                        placeholder="Write your secret message here..."></textarea>
+                </div>
+                <button type="submit" class="cute-btn" style="width: 100%;">Send 💌</button>
+            </form>
+        </div>
+
+        <!-- Right Column: Inbox / Outbox -->
+        <div style="flex: 2; min-width: 300px;">
+            <h3>📥 Inbox</h3>
+            {% if not inbox %}
+            <p style="font-style: italic; color: #888;">Your inbox is empty. No secrets here! 🙊</p>
+            {% else %}
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                {% for msg in inbox %}
+                <div class="comment"
+                    style="border: 1px solid var(--accent-color); background: {% if not msg['is_read'] %}#fff0f5{% else %}var(--container-bg){% endif %};">
+                    <div class="comment-header">
+                        <div>
+                            <img src="{{ msg['sender_pfp'] }}" alt="avatar"
+                                style="width: 20px; height: 20px; object-fit: cover; border-radius: 50%; vertical-align: middle;">
+                            <strong>From: @{{ msg['sender_name'] }}</strong>
+                            {% if not msg['is_read'] %}<span
+                                style="color: var(--accent-color); font-weight: bold; font-size: 0.8rem; margin-left: 5px;">(New!)</span>{%
+                            endif %}
+                        </div>
+                        <span style="font-size: 0.8rem; color: #888;">{{ msg['created_at'] }}</span>
+                    </div>
+                    <div style="margin-top: 5px; white-space: pre-wrap;">{{ msg['content'] | safe }}</div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div style="margin-top: 30px;">
+                <hr style="border-top: 1px dashed var(--border-color); margin-bottom: 20px;">
+                <h3>📤 Outbox (Sent)</h3>
+                {% if not outbox %}
+                <p style="font-style: italic; color: #888;">You haven't sent any messages yet.</p>
+                {% else %}
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    {% for msg in outbox %}
+                    <div class="comment" style="opacity: 0.8;">
+                        <div class="comment-header">
+                            <div>
+                                <img src="{{ msg['receiver_pfp'] }}" alt="avatar"
+                                    style="width: 20px; height: 20px; object-fit: cover; border-radius: 50%; vertical-align: middle;">
+                                <strong>To: @{{ msg['receiver_name'] }}</strong>
+                            </div>
+                            <span style="font-size: 0.8rem; color: #888;">{{ msg['created_at'] }}</span>
+                        </div>
+                        <div style="margin-top: 5px; white-space: pre-wrap;">{{ msg['content'] | safe }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
