@@ -86,7 +86,7 @@ def timeago_filter(dt_str):
 def get_user_status(last_active_str):
     """Determine Online/Away/Offline based on last_active timestamp string from DB"""
     if not last_active_str:
-        return {'label': 'Offline', 'color': '🔴'}
+        return {'label': 'Déconnecté', 'color': '🔴'}
         
     try:
         # SQLite stores as YYYY-MM-DD HH:MM:SS (UTC usually, but let's assume local for simplicity here)
@@ -97,13 +97,11 @@ def get_user_status(last_active_str):
         minutes = diff.total_seconds() / 60
         
         if minutes < 5:
-            return {'label': 'Online', 'color': '🟢'}
-        elif minutes < 60:
-            return {'label': 'Away', 'color': '🟡'}
+            return {'label': 'En ligne', 'color': '🟢'}
         else:
-            return {'label': 'Offline', 'color': '🔴'}
+            return {'label': 'En veille', 'color': '🟡'}
     except Exception:
-        return {'label': 'Offline', 'color': '🔴'}
+        return {'label': 'Déconnecté', 'color': '🔴'}
 
 @app.route('/')
 def index():
@@ -262,6 +260,11 @@ def register():
 
 @app.route('/logout')
 def logout():
+    if 'user_id' in session:
+        conn = get_db_connection()
+        conn.execute('UPDATE users SET last_active = NULL WHERE id = ?', (session['user_id'],))
+        conn.commit()
+        conn.close()
     session.clear()
     return redirect(url_for('index'))
 
