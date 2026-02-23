@@ -20,7 +20,14 @@
 
             {% if session.get('user_id') %}
             <a href="{{ url_for('edit_profile') }}">Edit Profile</a>
-            <a href="{{ url_for('messages') }}">Messages</a>
+            <a href="{{ url_for('messages') }}" style="position: relative;">
+                Messages
+                {% if unread_messages_count > 0 %}
+                <span
+                    style="position: absolute; top: -5px; right: -10px; background: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 0.7rem; font-weight: bold; line-height: 1;">{{
+                    unread_messages_count }}</span>
+                {% endif %}
+            </a>
             <a href="{{ url_for('logout') }}">Logout ({{ session.get('username') }})</a>
             {% else %}
             <a href="{{ url_for('login') }}">Login</a>

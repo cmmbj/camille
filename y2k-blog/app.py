@@ -33,6 +33,15 @@ def parse_mentions(text):
     styled_mention = r'<span class="mention">@\1</span>'
     return re.sub(pattern, styled_mention, text)
 
+@app.context_processor
+def inject_unread_count():
+    if 'user_id' in session:
+        conn = get_db_connection()
+        count = conn.execute('SELECT COUNT(id) FROM messages WHERE receiver_id = ? AND is_read = 0', (session['user_id'],)).fetchone()[0]
+        conn.close()
+        return dict(unread_messages_count=count)
+    return dict(unread_messages_count=0)
+
 # Update last active timestamp for logged in users
 @app.before_request
 def update_last_active():
@@ -605,12 +614,14 @@ def messages(chat_username):
                (SELECT created_at FROM messages 
                 WHERE (sender_id = u.id AND receiver_id = ?) 
                    OR (sender_id = ? AND receiver_id = u.id) 
-                ORDER BY created_at DESC LIMIT 1) as last_activity
+                ORDER BY created_at DESC LIMIT 1) as last_activity,
+               (SELECT COUNT(id) FROM messages 
+                WHERE sender_id = u.id AND receiver_id = ? AND is_read = 0) as unread_count
         FROM users u
         JOIN friends f ON (f.sender_id = ? AND f.receiver_id = u.id) 
                        OR (f.sender_id = u.id AND f.receiver_id = ?)
         WHERE f.status = 'accepted'
-    ''', (user_id, user_id, user_id, user_id, user_id, user_id)).fetchall()
+    ''', (user_id, user_id, user_id, user_id, user_id, user_id, user_id)).fetchall()
     
     friends = []
     for f in friends_data:
