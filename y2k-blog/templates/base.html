@@ -19,7 +19,6 @@
             <a href="{{ url_for('index') }}">Home</a>
 
             {% if session.get('user_id') %}
-            <a href="{{ url_for('new_post') }}">New Post</a>
             <a href="{{ url_for('edit_profile') }}">Edit Profile</a>
             <a href="{{ url_for('messages') }}">Messages</a>
             <a href="{{ url_for('logout') }}">Logout ({{ session.get('username') }})</a>
@@ -45,6 +44,50 @@
             {% block content %}{% endblock %}
         </main>
     </div>
+
+    {% if session.get('user_id') %}
+    <!-- Floating Post Button -->
+    <div id="floating-post-btn" class="floating-btn" onclick="toggleSidebar()" title="Nouveau Post">➕</div>
+
+    <!-- Sliding Sidebar -->
+    <div id="post-sidebar" class="post-sidebar">
+        <div class="sidebar-header">
+            <h2>Nouveau Post</h2>
+            <button class="close-btn" onclick="toggleSidebar()">✖</button>
+        </div>
+        <form action="{{ url_for('new_post') }}" method="POST" class="sidebar-form">
+            <div class="form-group">
+                <label for="post_type">Type de post</label>
+                <select id="post_type" name="post_type" required>
+                    <option value="message">💬 Message</option>
+                    <option value="photo">📸 Photo</option>
+                    <option value="video">🎥 Vidéo</option>
+                    <option value="story">⏱ Story</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="visibility">Visibilité</label>
+                <select id="visibility" name="visibility" required>
+                    <option value="public">🌍 Tout public</option>
+                    <option value="friends">👯‍♀️ Amis uniquement</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="content">Ton message</label>
+                <textarea id="content" name="content" required placeholder="Exprime-toi... (Markdown supporté !)"
+                    rows="6"></textarea>
+            </div>
+            <button type="submit" class="cute-btn" style="width: 100%;">Publier 💌</button>
+        </form>
+    </div>
+
+    <script>
+        function toggleSidebar() {
+            var sidebar = document.getElementById("post-sidebar");
+            sidebar.classList.toggle("open");
+        }
+    </script>
+    {% endif %}
 </body>
 
 </html>

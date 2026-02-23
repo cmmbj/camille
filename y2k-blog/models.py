@@ -31,6 +31,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS posts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             content TEXT NOT NULL,
+            post_type TEXT DEFAULT 'message',
+            visibility TEXT DEFAULT 'public',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             author_id INTEGER,
             FOREIGN KEY (author_id) REFERENCES users (id) ON DELETE CASCADE

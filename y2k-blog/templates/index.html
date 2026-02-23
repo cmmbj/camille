@@ -74,7 +74,22 @@
                     post['author_status']['color'] }}</span>
                 <span style="font-weight: normal; font-size: 0.8rem;">(@{{ post['username'] }})</span>
             </div>
-            <span class="post-date">{{ post['created_at'] }}</span>
+            <div>
+                <span class="badge"
+                    style="background: var(--secondary-bg); color: #fff; padding: 2px 5px; border-radius: 5px; font-size: 0.8rem;">
+                    {% if post['post_type'] == 'message' %}💬 Message
+                    {% elif post['post_type'] == 'photo' %}📸 Photo
+                    {% elif post['post_type'] == 'video' %}🎥 Vidéo
+                    {% elif post['post_type'] == 'story' %}⏱ Story
+                    {% else %}💬 Message{% endif %}
+                </span>
+                {% if post['visibility'] == 'friends' %}
+                <span class="badge"
+                    style="background: #8fbc8f; color: #fff; padding: 2px 5px; border-radius: 5px; font-size: 0.8rem; margin-left: 5px;"
+                    title="Amis uniquement">👯‍♀️ Amis</span>
+                {% endif %}
+                <span class="post-date" style="margin-left: 10px;">{{ post['created_at'] }}</span>
+            </div>
         </div>
 
         <!-- Display Markdown-rendered content safely -->

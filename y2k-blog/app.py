@@ -68,14 +68,30 @@ def get_user_status(last_active_str):
 def index():
     conn = get_db_connection()
     
-    # Get all posts
-    posts_data = conn.execute('''
-        SELECT posts.id, posts.content, posts.created_at, 
-               users.username, users.display_name, users.profile_picture 
-        FROM posts 
-        JOIN users ON posts.author_id = users.id 
-        ORDER BY posts.created_at DESC
-    ''').fetchall()
+    if 'user_id' in session:
+        user_id = session['user_id']
+        posts_data = conn.execute('''
+            SELECT DISTINCT posts.id, posts.content, posts.post_type, posts.visibility, posts.created_at, 
+                   users.username, users.display_name, users.profile_picture 
+            FROM posts 
+            JOIN users ON posts.author_id = users.id 
+            LEFT JOIN friends f1 ON (f1.sender_id = ? AND f1.receiver_id = posts.author_id AND f1.status = 'accepted')
+            LEFT JOIN friends f2 ON (f2.sender_id = posts.author_id AND f2.receiver_id = ? AND f2.status = 'accepted')
+            WHERE posts.visibility = 'public' 
+               OR posts.author_id = ?
+               OR (posts.visibility = 'friends' AND (f1.id IS NOT NULL OR f2.id IS NOT NULL))
+            ORDER BY posts.created_at DESC
+        ''', (user_id, user_id, user_id)).fetchall()
+    else:
+        # Get all public posts
+        posts_data = conn.execute('''
+            SELECT posts.id, posts.content, posts.post_type, posts.visibility, posts.created_at, 
+                   users.username, users.display_name, users.profile_picture 
+            FROM posts 
+            JOIN users ON posts.author_id = users.id 
+            WHERE posts.visibility = 'public'
+            ORDER BY posts.created_at DESC
+        ''').fetchall()
     
     posts = []
     # For each post, fetch its likes and comments
@@ -302,14 +318,28 @@ def public_profile(username):
                 relationship = 'blocked'
     
     # Fetch user's posts
-    posts_data = conn.execute('''
-        SELECT posts.id, posts.content, posts.created_at, 
-               users.username, users.display_name, users.profile_picture 
-        FROM posts 
-        JOIN users ON posts.author_id = users.id 
-        WHERE users.id = ?
-        ORDER BY posts.created_at DESC
-    ''', (target_user['id'],)).fetchall()
+    if relationship == 'friends' or ('user_id' in session and session['user_id'] == target_user['id']):
+        # Friends or self: see public and friends posts
+        posts_data = conn.execute('''
+            SELECT posts.id, posts.content, posts.post_type, posts.visibility, posts.created_at, 
+                   users.username, users.display_name, users.profile_picture 
+            FROM posts 
+            JOIN users ON posts.author_id = users.id 
+            WHERE users.id = ?
+              AND (posts.visibility = 'public' OR posts.visibility = 'friends')
+            ORDER BY posts.created_at DESC
+        ''', (target_user['id'],)).fetchall()
+    else:
+        # Non-friends: see only public posts
+        posts_data = conn.execute('''
+            SELECT posts.id, posts.content, posts.post_type, posts.visibility, posts.created_at, 
+                   users.username, users.display_name, users.profile_picture 
+            FROM posts 
+            JOIN users ON posts.author_id = users.id 
+            WHERE users.id = ?
+              AND posts.visibility = 'public'
+            ORDER BY posts.created_at DESC
+        ''', (target_user['id'],)).fetchall()
     
     posts = [dict(p) for p in posts_data]
     
@@ -440,7 +470,9 @@ def new_post():
         return redirect(url_for('login'))
 
     if request.method == 'POST':
-        raw_content = request.form['content']
+        raw_content = request.form.get('content')
+        post_type = request.form.get('post_type', 'message')
+        visibility = request.form.get('visibility', 'public')
         
         if not raw_content:
             flash('Le contenu est requis!')
@@ -453,13 +485,14 @@ def new_post():
             clean_content = bleach.clean(html_content, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRIBUTES)
 
             conn = get_db_connection()
-            conn.execute('INSERT INTO posts (content, author_id) VALUES (?, ?)',
-                         (clean_content, session['user_id']))
+            conn.execute('INSERT INTO posts (content, post_type, visibility, author_id) VALUES (?, ?, ?, ?)',
+                         (clean_content, post_type, visibility, session['user_id']))
             conn.commit()
             conn.close()
+            flash('Post publié avec succès ! ✨')
             return redirect(url_for('index'))
 
-    return render_template('new_post.html')
+    return redirect(url_for('index'))
 
 @app.route('/comment/<int:post_id>', methods=('POST',))
 def add_comment(post_id):
@@ -509,81 +542,87 @@ def toggle_like(item_type, item_id):
     
     return redirect(url_for('index'))
 
-@app.route('/messages', methods=('GET', 'POST'))
-def messages():
+@app.route('/messages', defaults={'chat_username': None}, methods=('GET', 'POST'))
+@app.route('/messages/<chat_username>', methods=('GET', 'POST'))
+def messages(chat_username):
     if 'user_id' not in session:
         return redirect(url_for('login'))
         
     conn = get_db_connection()
     user_id = session['user_id']
     
-    if request.method == 'POST':
-        receiver_username = request.form.get('receiver_username', '').strip()
-        content = request.form.get('content', '').strip()
+    # Fetch friend list for the sidebar
+    friends_data = conn.execute('''
+        SELECT u.id, u.username, u.display_name, u.profile_picture, u.last_active,
+               (SELECT content FROM messages 
+                WHERE (sender_id = u.id AND receiver_id = ?) 
+                   OR (sender_id = ? AND receiver_id = u.id) 
+                ORDER BY created_at DESC LIMIT 1) as last_message,
+               (SELECT created_at FROM messages 
+                WHERE (sender_id = u.id AND receiver_id = ?) 
+                   OR (sender_id = ? AND receiver_id = u.id) 
+                ORDER BY created_at DESC LIMIT 1) as last_activity
+        FROM users u
+        JOIN friends f ON (f.sender_id = ? AND f.receiver_id = u.id) 
+                       OR (f.sender_id = u.id AND f.receiver_id = ?)
+        WHERE f.status = 'accepted'
+    ''', (user_id, user_id, user_id, user_id, user_id, user_id)).fetchall()
+    
+    friends = []
+    for f in friends_data:
+        f_dict = dict(f)
+        f_dict['status'] = get_user_status(f_dict.get('last_active'))
+        friends.append(f_dict)
         
-        if not receiver_username or not content:
-            flash("Destinataire et message requis.")
-        elif receiver_username == session['username']:
-            flash("Tu ne peux pas t'envoyer de message à toi-même !")
-        else:
-            receiver = conn.execute('SELECT id FROM users WHERE username = ?', (receiver_username,)).fetchone()
-            if not receiver:
-                flash("Cet utilisateur n'existe pas.")
-            else:
-                receiver_id = receiver['id']
+    # Sort by recent message activity (newest first)
+    friends.sort(key=lambda x: (x['last_activity'] or ''), reverse=True)
+    
+    active_chat_user = None
+    chat_messages = []
+    
+    if chat_username:
+        active_chat_user = conn.execute('SELECT * FROM users WHERE username = ?', (chat_username,)).fetchone()
+        
+        if active_chat_user:
+            active_chat_user_dict = dict(active_chat_user)
+            active_chat_user_dict['status'] = get_user_status(active_chat_user_dict.get('last_active'))
+            active_chat_user = active_chat_user_dict
+            
+            # Verify friendship to allow chatting
+            is_friend = any(f['id'] == active_chat_user['id'] for f in friends)
+            
+            if not is_friend:
+                flash("Vous ne pouvez discuter qu'avec vos amis.")
+                return redirect(url_for('messages'))
                 
-                # Verify friendships and blocks
-                is_blocked = conn.execute('''
-                    SELECT * FROM blocks 
-                    WHERE (blocker_id = ? AND blocked_id = ?) 
-                       OR (blocker_id = ? AND blocked_id = ?)
-                ''', (user_id, receiver_id, receiver_id, user_id)).fetchone()
-                
-                if is_blocked:
-                    flash("Impossible d'envoyer un message à cet utilisateur.")
-                else:
-                    is_friend = conn.execute('''
-                        SELECT * FROM friends 
-                        WHERE status = 'accepted' 
-                        AND ((sender_id = ? AND receiver_id = ?) 
-                          OR (sender_id = ? AND receiver_id = ?))
-                    ''', (user_id, receiver_id, receiver_id, user_id)).fetchone()
-                    
-                    if not is_friend:
-                        flash("Vous devez être amis pour envoyer un message.")
-                    else:
-                        # Sanitize content
-                        clean_content = bleach.clean(content)
-                        conn.execute('INSERT INTO messages (sender_id, receiver_id, content) VALUES (?, ?, ?)',
-                                     (user_id, receiver_id, clean_content))
-                        conn.commit()
-                        flash("Message envoyé ! 💌")
-                        return redirect(url_for('messages'))
-
-    # Fetch inbox
-    inbox_data = conn.execute('''
-        SELECT m.id, m.content, m.created_at, m.is_read, u.username as sender_name, u.profile_picture as sender_pfp
-        FROM messages m
-        JOIN users u ON m.sender_id = u.id
-        WHERE m.receiver_id = ?
-        ORDER BY m.created_at DESC
-    ''', (user_id,)).fetchall()
-    
-    # Fetch outbox 
-    outbox_data = conn.execute('''
-        SELECT m.id, m.content, m.created_at, u.username as receiver_name, u.profile_picture as receiver_pfp
-        FROM messages m
-        JOIN users u ON m.receiver_id = u.id
-        WHERE m.sender_id = ?
-        ORDER BY m.created_at DESC
-    ''', (user_id,)).fetchall()
-    
-    # Mark all as read when viewing messages
-    conn.execute('UPDATE messages SET is_read = 1 WHERE receiver_id = ? AND is_read = 0', (user_id,))
-    conn.commit()
-    
+            if request.method == 'POST':
+                content = request.form.get('content', '').strip()
+                if content:
+                    clean_content = bleach.clean(content)
+                    conn.execute('INSERT INTO messages (sender_id, receiver_id, content) VALUES (?, ?, ?)',
+                                 (user_id, active_chat_user['id'], clean_content))
+                    conn.commit()
+                    return redirect(url_for('messages', chat_username=chat_username))
+            
+            # Mark messages as read
+            conn.execute('UPDATE messages SET is_read = 1 WHERE sender_id = ? AND receiver_id = ? AND is_read = 0',
+                         (active_chat_user['id'], user_id))
+            conn.commit()
+            
+            # Fetch conversation
+            messages_data = conn.execute('''
+                SELECT m.*, u.username as sender_name, u.profile_picture as sender_pfp
+                FROM messages m
+                JOIN users u ON m.sender_id = u.id
+                WHERE (m.sender_id = ? AND m.receiver_id = ?) 
+                   OR (m.sender_id = ? AND m.receiver_id = ?)
+                ORDER BY m.created_at ASC
+            ''', (user_id, active_chat_user['id'], active_chat_user['id'], user_id)).fetchall()
+            chat_messages = [dict(m) for m in messages_data]
+            
     conn.close()
-    return render_template('messages.html', inbox=inbox_data, outbox=outbox_data)
+    
+    return render_template('messages.html', friends=friends, active_chat_user=active_chat_user, messages=chat_messages)
 
 if __name__ == '__main__':
     app.run(debug=True)

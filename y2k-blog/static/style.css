@@ -303,6 +303,107 @@ button:hover,
     }
 }
 
+/* Floating Post Button */
+.floating-btn {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background-color: var(--accent-color);
+    color: white;
+    font-size: 2rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0px 5px 15px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    cursor: pointer;
+    border: 3px solid #fff;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.floating-btn:hover {
+    transform: scale(1.1) rotate(90deg);
+    background-color: var(--border-color);
+}
+
+/* Sliding Sidebar */
+.post-sidebar {
+    position: fixed;
+    top: 0;
+    right: -400px;
+    /* Hidden by default */
+    width: 350px;
+    height: 100vh;
+    background-color: var(--container-bg);
+    box-shadow: -5px 0 15px rgba(0, 0, 0, 0.2);
+    z-index: 1001;
+    transition: right 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    border-left: 4px dashed var(--border-color);
+    overflow-y: auto;
+}
+
+.post-sidebar.open {
+    right: 0;
+}
+
+.sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    background-color: var(--secondary-bg);
+    border-bottom: 3px solid var(--border-color);
+}
+
+.sidebar-header h2 {
+    margin: 0;
+    font-size: 1.8rem;
+    color: #fff;
+    text-shadow: 2px 2px 0px var(--border-color);
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 1.5rem;
+    cursor: pointer;
+    box-shadow: none;
+    padding: 0;
+}
+
+.close-btn:hover {
+    color: var(--text-color);
+    transform: scale(1.1);
+    background: none;
+}
+
+.sidebar-form {
+    padding: 20px;
+}
+
+.sidebar-form .form-group {
+    margin-bottom: 20px;
+}
+
+.sidebar-form label {
+    color: var(--accent-color);
+}
+
+.sidebar-form select {
+    width: 100%;
+    padding: 10px;
+    border: 2px dotted var(--border-color);
+    border-radius: 10px;
+    font-family: 'Fredoka', sans-serif;
+    box-sizing: border-box;
+    background: #fff;
+    color: var(--text-color);
+}
+
 /* Bubbly Sparkles Background Element */
 .sparkle-bg {
     position: fixed;
