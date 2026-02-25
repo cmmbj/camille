@@ -1,72 +1,72 @@
-import { pgTable, serial, text, varchar, timestamp, boolean, integer } from "drizzle-orm/pg-core";
+import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 
-export const users = pgTable("users", {
-    id: serial("id").primaryKey(),
-    username: varchar("username", { length: 50 }).notNull().unique(),
-    display_name: varchar("display_name", { length: 50 }).notNull(),
+export const users = sqliteTable("users", {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    username: text("username").notNull().unique(),
+    display_name: text("display_name").notNull(),
     password_hash: text("password_hash").notNull(),
     profile_picture: text("profile_picture").default("https://i.pinimg.com/736x/9e/83/75/9e837528f01cf3f42119c5aeeed1b336.jpg"),
     bio: text("bio"),
     music_link: text("music_link"),
-    role: varchar("role", { length: 20 }).default("user"),
-    status_note: varchar("status_note", { length: 50 }),
-    last_active: timestamp("last_active", { mode: "date" }).defaultNow(),
+    role: text("role").default("user"),
+    status_note: text("status_note"),
+    last_active: text("last_active"),
 });
 
-export const posts = pgTable("posts", {
-    id: serial("id").primaryKey(),
+export const posts = sqliteTable("posts", {
+    id: integer("id").primaryKey({ autoIncrement: true }),
     authorId: integer("author_id").references(() => users.id).notNull(),
     content: text("content").notNull(),
-    postType: varchar("post_type", { length: 20 }).default("message"),
-    visibility: varchar("visibility", { length: 20 }).default("public"),
+    postType: text("post_type").default("message"),
+    visibility: text("visibility").default("public"),
     imageUrl: text("image_url"),
-    createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+    createdAt: text("created_at"),
 });
 
-export const comments = pgTable("comments", {
-    id: serial("id").primaryKey(),
+export const comments = sqliteTable("comments", {
+    id: integer("id").primaryKey({ autoIncrement: true }),
     postId: integer("post_id").references(() => posts.id).notNull(),
     authorId: integer("author_id").references(() => users.id).notNull(),
     content: text("content").notNull(),
-    createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+    createdAt: text("created_at"),
 });
 
-export const likes = pgTable("likes", {
-    id: serial("id").primaryKey(),
+export const likes = sqliteTable("likes", {
+    id: integer("id").primaryKey({ autoIncrement: true }),
     userId: integer("user_id").references(() => users.id).notNull(),
-    itemType: varchar("item_type", { length: 20 }).notNull(), // 'post' or 'comment'
+    itemType: text("item_type").notNull(),
     itemId: integer("item_id").notNull(),
 });
 
-export const messages = pgTable("messages", {
-    id: serial("id").primaryKey(),
+export const messages = sqliteTable("messages", {
+    id: integer("id").primaryKey({ autoIncrement: true }),
     senderId: integer("sender_id").references(() => users.id).notNull(),
     receiverId: integer("receiver_id").references(() => users.id).notNull(),
     content: text("content").notNull(),
-    isRead: boolean("is_read").default(false),
-    createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+    isRead: integer("is_read", { mode: "boolean" }).default(false),
+    createdAt: text("created_at"),
 });
 
-export const friends = pgTable("friends", {
-    id: serial("id").primaryKey(),
+export const friends = sqliteTable("friends", {
+    id: integer("id").primaryKey({ autoIncrement: true }),
     senderId: integer("sender_id").references(() => users.id).notNull(),
     receiverId: integer("receiver_id").references(() => users.id).notNull(),
-    status: varchar("status", { length: 20 }).default("pending"), // 'pending', 'accepted'
-    createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+    status: text("status").default("pending"),
+    createdAt: text("created_at"),
 });
 
-export const blocks = pgTable("blocks", {
-    id: serial("id").primaryKey(),
+export const blocks = sqliteTable("blocks", {
+    id: integer("id").primaryKey({ autoIncrement: true }),
     blockerId: integer("blocker_id").references(() => users.id).notNull(),
     blockedId: integer("blocked_id").references(() => users.id).notNull(),
-    createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+    createdAt: text("created_at"),
 });
 
-export const conversationSettings = pgTable("conversation_settings", {
-    id: serial("id").primaryKey(),
+export const conversationSettings = sqliteTable("conversation_settings", {
+    id: integer("id").primaryKey({ autoIncrement: true }),
     userId: integer("user_id").references(() => users.id).notNull(),
     friendId: integer("friend_id").references(() => users.id).notNull(),
-    nickname: varchar("nickname", { length: 50 }),
-    readReceipts: boolean("read_receipts").default(true),
-    ephemeralMode: boolean("ephemeral_mode").default(false),
+    nickname: text("nickname"),
+    readReceipts: integer("read_receipts", { mode: "boolean" }).default(true),
+    ephemeralMode: integer("ephemeral_mode", { mode: "boolean" }).default(false),
 });

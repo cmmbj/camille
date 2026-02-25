@@ -6,13 +6,14 @@ const env = nunjucks.configure(templatesDir, { autoescape: true });
 
 env.addFilter('timeago', function (dateStr: string | Date | null) {
     if (!dateStr) return "";
-    const dt = new Date(dateStr);
+    const dt = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
+    if (isNaN(dt.getTime())) return "";
     const now = new Date();
     const diffSeconds = Math.floor((now.getTime() - dt.getTime()) / 1000);
     const days = Math.floor(diffSeconds / 86400);
 
     if (days === 0) {
-        if (diffSeconds < 60) return "à l'instant";
+        if (diffSeconds < 60) return "a l'instant";
         if (diffSeconds < 3600) return `il y a ${Math.floor(diffSeconds / 60)} min`;
         return `il y a ${Math.floor(diffSeconds / 3600)}h`;
     } else if (days === 1) {
@@ -32,6 +33,17 @@ env.addFilter('timeago', function (dateStr: string | Date | null) {
         if (years <= 1) return `il y a 1 an`;
         return `il y a ${years} ans`;
     }
+});
+
+env.addFilter('striptags', function (str: string) {
+    if (!str) return '';
+    return str.replace(/<[^>]*>/g, '');
+});
+
+env.addFilter('truncate', function (str: string, length: number) {
+    if (!str) return '';
+    if (str.length <= length) return str;
+    return str.substring(0, length) + '...';
 });
 
 env.addGlobal('url_for', function (endpoint: string, kwargs: Record<string, any> = {}) {

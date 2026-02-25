@@ -19,7 +19,7 @@ export const usersRoutes = new Elysia({ prefix: "/api" })
     .get("/user/:username", async ({ user, params: { username } }) => {
         const targetResult = await db.select().from(users).where(eq(users.username, username)).limit(1);
         if (targetResult.length === 0) return new Response(JSON.stringify({ error: "User not found" }), { status: 404 });
-        const target = targetResult[0];
+        const target = targetResult[0]!;
 
         let relationship = 'none';
         if (user && user.id !== target.id) {
@@ -36,8 +36,8 @@ export const usersRoutes = new Elysia({ prefix: "/api" })
                 )).limit(1);
 
                 if (friendReq.length > 0) {
-                    if (friendReq[0].status === 'accepted') relationship = 'friends';
-                    else if (friendReq[0].senderId === user.id) relationship = 'request_sent';
+                    if (friendReq[0]!.status === 'accepted') relationship = 'friends';
+                    else if (friendReq[0]!.senderId === user.id) relationship = 'request_sent';
                     else relationship = 'request_received';
                 }
             }
@@ -54,12 +54,12 @@ export const usersRoutes = new Elysia({ prefix: "/api" })
         )).limit(1);
 
         if (existing.length === 0) {
-            await db.insert(friends).values({ senderId: user.id, receiverId: tid });
-            setFlash(cookie, "Demande d'ami envoyée ! 💌");
+            await db.insert(friends).values({ senderId: user.id, receiverId: tid, createdAt: new Date().toISOString() });
+            setFlash(cookie, "Demande d'ami envoyee !");
         }
 
         const target = await db.select().from(users).where(eq(users.id, tid)).limit(1);
-        set.redirect = target.length > 0 ? `/user/${target[0].username}` : "/";
+        set.redirect = target.length > 0 ? `/user/${target[0]!.username}` : "/";
     })
     .post("/accept_friend/:target_id", async ({ user, params: { target_id }, cookie, set }) => {
         if (!user) { set.redirect = "/login"; return; }
@@ -67,9 +67,9 @@ export const usersRoutes = new Elysia({ prefix: "/api" })
             eq(friends.senderId, parseInt(target_id)),
             eq(friends.receiverId, user.id)
         ));
-        setFlash(cookie, "Demande d'ami acceptée ! 💖");
+        setFlash(cookie, "Demande d'ami acceptee !");
         const target = await db.select().from(users).where(eq(users.id, parseInt(target_id))).limit(1);
-        set.redirect = target.length > 0 ? `/user/${target[0].username}` : "/";
+        set.redirect = target.length > 0 ? `/user/${target[0]!.username}` : "/";
     })
     .post("/remove_friend/:target_id", async ({ user, params: { target_id }, cookie, set }) => {
         if (!user) { set.redirect = "/login"; return; }
@@ -78,9 +78,9 @@ export const usersRoutes = new Elysia({ prefix: "/api" })
             and(eq(friends.senderId, user.id), eq(friends.receiverId, tid)),
             and(eq(friends.senderId, tid), eq(friends.receiverId, user.id))
         ));
-        setFlash(cookie, "Ami(e) supprimé(e).");
+        setFlash(cookie, "Ami(e) supprime(e).");
         const target = await db.select().from(users).where(eq(users.id, tid)).limit(1);
-        set.redirect = target.length > 0 ? `/user/${target[0].username}` : "/";
+        set.redirect = target.length > 0 ? `/user/${target[0]!.username}` : "/";
     })
     .post("/block_user/:target_id", async ({ user, params: { target_id }, cookie, set }) => {
         if (!user) { set.redirect = "/login"; return; }
@@ -93,16 +93,16 @@ export const usersRoutes = new Elysia({ prefix: "/api" })
 
         const existing = await db.select().from(blocks).where(and(eq(blocks.blockerId, user.id), eq(blocks.blockedId, tid))).limit(1);
         if (existing.length === 0) {
-            await db.insert(blocks).values({ blockerId: user.id, blockedId: tid });
+            await db.insert(blocks).values({ blockerId: user.id, blockedId: tid, createdAt: new Date().toISOString() });
         }
-        setFlash(cookie, "Utilisateur bloqué. 🛑");
+        setFlash(cookie, "Utilisateur bloque.");
         set.redirect = "/";
     })
     .post("/unblock_user/:target_id", async ({ user, params: { target_id }, cookie, set }) => {
         if (!user) { set.redirect = "/login"; return; }
         const tid = parseInt(target_id);
         await db.delete(blocks).where(and(eq(blocks.blockerId, user.id), eq(blocks.blockedId, tid)));
-        setFlash(cookie, "Utilisateur débloqué.");
+        setFlash(cookie, "Utilisateur debloque.");
         const target = await db.select().from(users).where(eq(users.id, tid)).limit(1);
-        set.redirect = target.length > 0 ? `/user/${target[0].username}` : "/";
+        set.redirect = target.length > 0 ? `/user/${target[0]!.username}` : "/";
     });

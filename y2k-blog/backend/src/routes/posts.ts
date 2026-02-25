@@ -1,8 +1,8 @@
 import { Elysia } from "elysia";
 import { jwt } from "@elysiajs/jwt";
 import { db } from "../db";
-import { users, posts, comments, likes, friends } from "../db/schema";
-import { eq, desc, and, or, sql } from "drizzle-orm";
+import { users, posts, comments, likes } from "../db/schema";
+import { eq, desc, and } from "drizzle-orm";
 import { marked } from "marked";
 import sanitizeHtml from "sanitize-html";
 import { setFlash } from "../utils/flash";
@@ -40,8 +40,6 @@ export const postsRoutes = new Elysia({ prefix: "/api" })
         return { user: { id: token.id as number, username: token.username as string, role: token.role as string } };
     })
     .get("/posts", async ({ user }) => {
-        // Build base feed query logic
-        // Simplified basic version for now, filters should match Flask logic
         const feed = await db.select({
             id: posts.id,
             content: posts.content,
@@ -58,14 +56,12 @@ export const postsRoutes = new Elysia({ prefix: "/api" })
             .innerJoin(users, eq(posts.authorId, users.id))
             .orderBy(desc(posts.createdAt))
             .limit(50);
-        // Note: For a complete translation, we should filter by friends here.
-        // Doing this in JS runtime or via raw SQL view might be easier for complex auth rules.
 
         return feed;
     })
     .post("/post/new", async ({ user, body, cookie, set }) => {
         if (!user) {
-            setFlash(cookie, "Vous devez être connecté pour poster.");
+            setFlash(cookie, "Vous devez etre connecte pour poster.");
             set.redirect = "/login";
             return;
         }
@@ -83,10 +79,11 @@ export const postsRoutes = new Elysia({ prefix: "/api" })
             authorId: user.id,
             content: cleanContent,
             visibility: visibility || "public",
-            imageUrl: imageUrl || null
+            imageUrl: imageUrl || null,
+            createdAt: new Date().toISOString()
         });
 
-        setFlash(cookie, "Post publié avec succès ! ✨");
+        setFlash(cookie, "Post publie avec succes !");
         set.redirect = "/";
     })
     .post("/comment/:post_id", async ({ user, params: { post_id }, body, cookie, set, request }) => {
@@ -101,7 +98,8 @@ export const postsRoutes = new Elysia({ prefix: "/api" })
             await db.insert(comments).values({
                 postId: parseInt(post_id),
                 authorId: user.id,
-                content: cleanContent
+                content: cleanContent,
+                createdAt: new Date().toISOString()
             });
         }
 
@@ -123,7 +121,7 @@ export const postsRoutes = new Elysia({ prefix: "/api" })
         )).limit(1);
 
         if (existing.length > 0) {
-            await db.delete(likes).where(eq(likes.id, existing[0].id));
+            await db.delete(likes).where(eq(likes.id, existing[0]!.id));
         } else {
             await db.insert(likes).values({
                 userId: user.id,
@@ -136,7 +134,7 @@ export const postsRoutes = new Elysia({ prefix: "/api" })
         let targetId = parsedId;
         if (item_type === 'comment') {
             const c = await db.select().from(comments).where(eq(comments.id, parsedId)).limit(1);
-            if (c.length > 0) targetId = c[0].postId;
+            if (c.length > 0) targetId = c[0]!.postId;
         }
         set.redirect = referer.split('#')[0] + `#post-${targetId}`;
     })
@@ -144,7 +142,6 @@ export const postsRoutes = new Elysia({ prefix: "/api" })
         if (!user || user.role !== 'admin') { set.redirect = "/login"; return; }
         const pId = parseInt(post_id);
 
-        // cascade deletes simplified
         await db.delete(likes).where(and(eq(likes.itemType, 'post'), eq(likes.itemId, pId)));
         const postComments = await db.select().from(comments).where(eq(comments.postId, pId));
         for (const c of postComments) {
@@ -153,7 +150,7 @@ export const postsRoutes = new Elysia({ prefix: "/api" })
         await db.delete(comments).where(eq(comments.postId, pId));
         await db.delete(posts).where(eq(posts.id, pId));
 
-        setFlash(cookie, "Post supprimé 🗑️");
+        setFlash(cookie, "Post supprime");
         set.redirect = request.headers.get('referer') || "/";
     })
     .post("/delete_comment/:comment_id", async ({ user, params: { comment_id }, cookie, set, request }) => {
@@ -162,10 +159,10 @@ export const postsRoutes = new Elysia({ prefix: "/api" })
         const c = await db.select().from(comments).where(eq(comments.id, cId)).limit(1);
 
         if (c.length > 0) {
-            const pId = c[0].postId;
+            const pId = c[0]!.postId;
             await db.delete(likes).where(and(eq(likes.itemType, 'comment'), eq(likes.itemId, cId)));
             await db.delete(comments).where(eq(comments.id, cId));
-            setFlash(cookie, "Commentaire supprimé 🗑️");
+            setFlash(cookie, "Commentaire supprime");
             const referer = request.headers.get("referer") || "/";
             set.redirect = referer.split('#')[0] + `#post-${pId}`;
         } else {

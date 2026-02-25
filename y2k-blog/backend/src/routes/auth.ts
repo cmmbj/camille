@@ -1,4 +1,4 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 import { jwt } from "@elysiajs/jwt";
 import { db } from "../db";
 import { users } from "../db/schema";
@@ -20,17 +20,25 @@ export const authRoutes = new Elysia({ prefix: "/api" })
             return;
         }
 
-        const isMatch = await Bun.password.verify(password, user[0].password_hash);
-        // Note: For simple Flask compatibility fallback, if simple password match then it's valid too
-        let isValid = isMatch || user[0].password_hash === password;
+        let isValid = false;
+        try {
+            isValid = await Bun.password.verify(password, user[0]!.password_hash);
+        } catch {
+            // Fallback: plain text comparison for legacy/demo data
+            isValid = user[0]!.password_hash === password;
+        }
+
         if (!isValid) {
             setFlash(cookie, "Identifiants incorrects.");
             set.redirect = "/login";
             return;
         }
 
+        // Update last_active
+        await db.update(users).set({ last_active: new Date().toISOString() }).where(eq(users.id, user[0]!.id));
+
         cookie.auth.set({
-            value: await jwt.sign({ id: user[0].id, username: user[0].username, role: user[0].role }),
+            value: await jwt.sign({ id: user[0]!.id, username: user[0]!.username, role: user[0]!.role ?? 'user' }),
             httpOnly: true,
             maxAge: 7 * 86400,
             path: '/',
@@ -54,13 +62,14 @@ export const authRoutes = new Elysia({ prefix: "/api" })
                 username,
                 display_name: display_name || username,
                 password_hash: hash,
-                role: "user"
-            }).returning();
+                role: "user",
+                last_active: new Date().toISOString()
+            });
 
-            setFlash(cookie, "Compte créé avec succès ! Connecte-toi 💖");
+            setFlash(cookie, "Compte cree avec succes ! Connecte-toi.");
             set.redirect = "/login";
         } catch (error) {
-            setFlash(cookie, "Ce nom d'utilisateur est déjà pris.");
+            setFlash(cookie, "Ce nom d'utilisateur est deja pris.");
             set.redirect = "/register";
         }
     })
@@ -73,7 +82,6 @@ export const authRoutes = new Elysia({ prefix: "/api" })
         cookie.auth.remove();
         set.redirect = "/";
     })
-    // Get current user profile edit data
     .get("/profile", async ({ cookie: { auth }, jwt }) => {
         const token = await jwt.verify(auth.value);
         if (!token) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
@@ -93,7 +101,7 @@ export const authRoutes = new Elysia({ prefix: "/api" })
         const { username, display_name, bio, profile_picture, music_link, status_note } = body as any;
 
         if (!username) {
-            setFlash(cookie, "Le nom d'utilisateur ne peut pas être vide.");
+            setFlash(cookie, "Le nom d'utilisateur ne peut pas etre vide.");
             set.redirect = "/edit_profile";
             return;
         }
@@ -108,11 +116,10 @@ export const authRoutes = new Elysia({ prefix: "/api" })
                 status_note,
             }).where(eq(users.id, token.id as number));
 
-            // update token if username changed? We'll let it be for now since it relies on id
-            setFlash(cookie, "Profil mis à jour ! ✨");
+            setFlash(cookie, "Profil mis a jour !");
             set.redirect = "/";
         } catch (error) {
-            setFlash(cookie, "Ce nom d'utilisateur est déjà pris par quelqu'un d'autre.");
+            setFlash(cookie, "Ce nom d'utilisateur est deja pris par quelqu'un d'autre.");
             set.redirect = "/edit_profile";
         }
     });

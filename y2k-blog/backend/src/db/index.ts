@@ -1,13 +1,14 @@
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
+import { drizzle } from 'drizzle-orm/bun-sqlite';
+import { Database } from 'bun:sqlite';
 import * as schema from './schema';
+import path from 'path';
 
-const connectionString = process.env.DATABASE_URL;
+const dbPath = path.resolve(import.meta.dir, '../../../../data.db');
+const sqlite = new Database(dbPath);
 
-if (!connectionString) {
-    throw new Error('DATABASE_URL is not set in the environment variables.');
-}
+// Enable WAL mode for better concurrent read performance
+sqlite.exec("PRAGMA journal_mode = WAL;");
+sqlite.exec("PRAGMA foreign_keys = ON;");
 
-// Disable prefetch as it is not supported for "Transaction" pool mode
-export const client = postgres(connectionString, { prepare: false });
-export const db = drizzle(client, { schema });
+export const db = drizzle(sqlite, { schema });
+export { sqlite };

@@ -1,8 +1,8 @@
 import { Elysia } from "elysia";
 import { jwt } from "@elysiajs/jwt";
 import { db } from "../db";
-import { users, messages, friends, blocks, conversationSettings } from "../db/schema";
-import { eq, and, or, desc } from "drizzle-orm";
+import { users, messages, conversationSettings } from "../db/schema";
+import { eq, and, or } from "drizzle-orm";
 import sanitizeHtml from "sanitize-html";
 import { setFlash } from "../utils/flash";
 
@@ -25,9 +25,8 @@ export const messagesRoutes = new Elysia({ prefix: "/api" })
         if (!user) { set.redirect = "/login"; return; }
         const targetRes = await db.select().from(users).where(eq(users.username, username)).limit(1);
         if (targetRes.length === 0) { set.redirect = "/messages"; return; }
-        const target = targetRes[0];
+        const target = targetRes[0]!;
 
-        // Mark as read
         await db.update(messages).set({ isRead: true })
             .where(and(eq(messages.senderId, target.id), eq(messages.receiverId, user.id), eq(messages.isRead, false)));
 
@@ -45,14 +44,15 @@ export const messagesRoutes = new Elysia({ prefix: "/api" })
 
         const targetRes = await db.select().from(users).where(eq(users.username, username)).limit(1);
         if (targetRes.length === 0) { set.redirect = "/messages"; return; }
-        const target = targetRes[0];
+        const target = targetRes[0]!;
 
         const cleanContent = sanitizeHtml(content);
 
         await db.insert(messages).values({
             senderId: user.id,
             receiverId: target.id,
-            content: cleanContent
+            content: cleanContent,
+            createdAt: new Date().toISOString()
         });
 
         set.redirect = `/messages/${username}`;
@@ -63,7 +63,7 @@ export const messagesRoutes = new Elysia({ prefix: "/api" })
 
         const friendRes = await db.select().from(users).where(eq(users.username, chat_username)).limit(1);
         if (friendRes.length === 0) { set.redirect = "/messages"; return; }
-        const friend = friendRes[0];
+        const friend = friendRes[0]!;
 
         const settings = await db.select().from(conversationSettings).where(and(eq(conversationSettings.userId, user.id), eq(conversationSettings.friendId, friend.id))).limit(1);
 
@@ -73,19 +73,19 @@ export const messagesRoutes = new Elysia({ prefix: "/api" })
         if (settings.length > 0) {
             await db.update(conversationSettings).set({
                 nickname: nickname || null,
-                showReadReceipts: showReceipts,
+                readReceipts: showReceipts,
                 ephemeralMode: ephemeral
-            }).where(eq(conversationSettings.id, settings[0].id));
+            }).where(eq(conversationSettings.id, settings[0]!.id));
         } else {
             await db.insert(conversationSettings).values({
                 userId: user.id,
                 friendId: friend.id,
                 nickname: nickname || null,
-                showReadReceipts: showReceipts,
+                readReceipts: showReceipts,
                 ephemeralMode: ephemeral
             });
         }
 
-        setFlash(cookie, "Paramètres de discussion mis à jour !");
+        setFlash(cookie, "Parametres de discussion mis a jour !");
         set.redirect = `/messages/${chat_username}`;
     });
