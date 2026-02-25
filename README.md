@@ -48,7 +48,7 @@ Bienvenue sur le code source de **Tessia's Diary**, un blog personnel nostalgiqu
 - **`database.db`** : (Généré automatiquement) Fichier SQLite contenant toutes les données du site web.
 
 ### Design et Templating
-- **`static/style.css`** : Fichier contenant tout le design du site. Il définit la palette de couleurs (rose grisâtre/chaleureux), le motif de fond en Tartan, et les icônes brillantes.
+- **`static/style.css`** : Fichier contenant tout le design du site. Il définit la palette de couleurs, le motif de fond en Tartan, et les icônes brillantes.
 - **`templates/base.html`** : Le "cadre" principal du site, contenant la barre de navigation et le bouton "Nouveau Post" flottant.
 - **`templates/index.html`** : La page d'accueil avec son lecteur Spotify intégré.
 - **`templates/messages.html`** : Double panel de discussion privées façon Instagram.

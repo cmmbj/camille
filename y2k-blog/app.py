@@ -2,9 +2,11 @@ import sqlite3
 import markdown
 import bleach
 import re
+import os
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.secret_key = 'y2k_myspace_super_secret_key'
@@ -50,6 +52,18 @@ def update_last_active():
         conn.execute('UPDATE users SET last_active = CURRENT_TIMESTAMP WHERE id = ?', (session['user_id'],))
         conn.commit()
         conn.close()
+
+@app.after_request
+def add_header(response):
+    """
+    Force modern browsers to not cache pages.
+    This prevents the back/forward cache from showing ghost posts after a user deletes them
+    and is redirected back to the same page.
+    """
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '-1'
+    return response
 
 @app.template_filter('timeago')
 def timeago_filter(dt_str):
@@ -107,8 +121,10 @@ def get_user_status(last_active_str):
         
         if minutes < 5:
             return {'label': 'En ligne', 'color': '🟢'}
-        else:
+        elif minutes <= 60:
             return {'label': 'En veille', 'color': '🟡'}
+        else:
+            return {'label': 'Déconnecté', 'color': '🔴'}
     except Exception:
         return {'label': 'Déconnecté', 'color': '🔴'}
 
@@ -119,7 +135,7 @@ def index():
     if 'user_id' in session:
         user_id = session['user_id']
         posts_data = conn.execute('''
-            SELECT DISTINCT posts.id, posts.content, posts.post_type, posts.visibility, posts.created_at, 
+            SELECT DISTINCT posts.id, posts.content, posts.post_type, posts.visibility, posts.image_url, posts.created_at, posts.author_id,
                    users.username, users.display_name, users.profile_picture 
             FROM posts 
             JOIN users ON posts.author_id = users.id 
@@ -133,7 +149,7 @@ def index():
     else:
         # Get all public posts
         posts_data = conn.execute('''
-            SELECT posts.id, posts.content, posts.post_type, posts.visibility, posts.created_at, 
+            SELECT posts.id, posts.content, posts.post_type, posts.visibility, posts.image_url, posts.created_at, posts.author_id,
                    users.username, users.display_name, users.profile_picture 
             FROM posts 
             JOIN users ON posts.author_id = users.id 
@@ -146,6 +162,13 @@ def index():
     for p in posts_data:
         post_dict = dict(p)
         
+        # Ensure author_id is always present in post_dict even if the query didn't select it 
+        if 'author_id' not in post_dict:
+            # We must get the author id via users if it wasn't explicitly selected
+            author_row = conn.execute('SELECT id FROM users WHERE username = ?', (post_dict['username'],)).fetchone()
+            if author_row:
+                post_dict['author_id'] = author_row['id']
+        
         # Determine if the current user liked this post
         current_user_liked = False
         likes_count = 0
@@ -156,7 +179,7 @@ def index():
             
         # Get comments
         comments_data = conn.execute('''
-            SELECT comments.id, comments.content, comments.created_at, 
+            SELECT comments.id, comments.content, comments.created_at, comments.author_id,
                    users.username, users.display_name, users.profile_picture 
             FROM comments 
             JOIN users ON comments.author_id = users.id 
@@ -374,7 +397,7 @@ def public_profile(username):
     if relationship == 'friends' or ('user_id' in session and session['user_id'] == target_user['id']):
         # Friends or self: see public and friends posts
         posts_data = conn.execute('''
-            SELECT posts.id, posts.content, posts.post_type, posts.visibility, posts.created_at, 
+            SELECT posts.id, posts.content, posts.post_type, posts.visibility, posts.image_url, posts.created_at, posts.author_id,
                    users.username, users.display_name, users.profile_picture 
             FROM posts 
             JOIN users ON posts.author_id = users.id 
@@ -385,7 +408,7 @@ def public_profile(username):
     else:
         # Non-friends: see only public posts
         posts_data = conn.execute('''
-            SELECT posts.id, posts.content, posts.post_type, posts.visibility, posts.created_at, 
+            SELECT posts.id, posts.content, posts.post_type, posts.visibility, posts.image_url, posts.created_at, posts.author_id,
                    users.username, users.display_name, users.profile_picture 
             FROM posts 
             JOIN users ON posts.author_id = users.id 
@@ -523,23 +546,35 @@ def new_post():
         return redirect(url_for('login'))
 
     if request.method == 'POST':
-        raw_content = request.form.get('content')
-        post_type = request.form.get('post_type', 'message')
+        raw_content = request.form.get('content', '').strip()
         visibility = request.form.get('visibility', 'public')
+        image_url = None
         
-        if not raw_content:
-            flash('Le contenu est requis!')
+        if 'image' in request.files:
+            file = request.files['image']
+            if file and file.filename != '':
+                filename = secure_filename(file.filename)
+                unique_filename = f"{int(datetime.utcnow().timestamp())}_{filename}"
+                upload_folder = os.path.join(app.root_path, 'static', 'uploads')
+                os.makedirs(upload_folder, exist_ok=True)
+                file_path = os.path.join(upload_folder, unique_filename)
+                file.save(file_path)
+                image_url = url_for('static', filename='uploads/' + unique_filename)
+        
+        if not raw_content and not image_url:
+            flash('Le contenu ou une image est requis!')
         else:
-            # Parse mentions FIRST, then Markdown
-            content_with_mentions = parse_mentions(raw_content)
-            html_content = markdown.markdown(content_with_mentions)
-            
-            # Sanitize the HTML
-            clean_content = bleach.clean(html_content, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRIBUTES)
+            clean_content = ""
+            if raw_content:
+                # Parse mentions FIRST, then Markdown
+                content_with_mentions = parse_mentions(raw_content)
+                html_content = markdown.markdown(content_with_mentions)
+                # Sanitize the HTML
+                clean_content = bleach.clean(html_content, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRIBUTES)
 
             conn = get_db_connection()
-            conn.execute('INSERT INTO posts (content, post_type, visibility, author_id) VALUES (?, ?, ?, ?)',
-                         (clean_content, post_type, visibility, session['user_id']))
+            conn.execute('INSERT INTO posts (content, visibility, image_url, author_id) VALUES (?, ?, ?, ?)',
+                         (clean_content, visibility, image_url, session['user_id']))
             conn.commit()
             conn.close()
             flash('Post publié avec succès ! ✨')
@@ -565,7 +600,61 @@ def add_comment(post_id):
         conn.commit()
         conn.close()
         
-    return redirect(url_for('index'))
+    next_url = request.referrer or url_for('index')
+    if '#' in next_url:
+        next_url = next_url.split('#')[0]
+    return redirect(next_url + f'#post-{post_id}')
+
+@app.route('/delete_post/<int:post_id>', methods=['POST'])
+def delete_post(post_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+        
+    conn = get_db_connection()
+    user = conn.execute('SELECT role FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+    
+    if user and user['role'] == 'admin':
+        # Use single quotes for string literals to be strictly SQLite safe
+        conn.execute('DELETE FROM likes WHERE item_type = \'post\' AND item_id = ?', (post_id,))
+        # Also clean up likes for comments on this post to avoid orphan rows
+        comments = conn.execute('SELECT id FROM comments WHERE post_id = ?', (post_id,)).fetchall()
+        for c in comments:
+            conn.execute('DELETE FROM likes WHERE item_type = \'comment\' AND item_id = ?', (c['id'],))
+        conn.execute('DELETE FROM comments WHERE post_id = ?', (post_id,))
+        conn.execute('DELETE FROM posts WHERE id = ?', (post_id,))
+        conn.commit()
+        flash('Post supprimé 🗑️')
+            
+    conn.close()
+    return redirect(request.referrer or url_for('index'))
+
+@app.route('/delete_comment/<int:comment_id>', methods=['POST'])
+def delete_comment(comment_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+        
+    conn = get_db_connection()
+    user = conn.execute('SELECT role FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+    
+    if user and user['role'] == 'admin':
+        comment = conn.execute('SELECT post_id FROM comments WHERE id = ?', (comment_id,)).fetchone()
+        if comment:
+            post_id = comment['post_id']
+            # Use single quotes for string literals to be strictly SQLite safe
+            conn.execute('DELETE FROM likes WHERE item_type = \'comment\' AND item_id = ?', (comment_id,))
+            conn.execute('DELETE FROM comments WHERE id = ?', (comment_id,))
+            conn.commit()
+            conn.close()
+            flash('Commentaire supprimé 🗑️')
+            
+            # Use request.referrer but append the anchor tag
+            next_url = request.referrer or url_for('index')
+            if '#' in next_url:
+                next_url = next_url.split('#')[0]
+            return redirect(next_url + f'#post-{post_id}')
+            
+    conn.close()
+    return redirect(request.referrer or url_for('index'))
 
 @app.route('/like/<item_type>/<int:item_id>', methods=('POST',))
 def toggle_like(item_type, item_id):
@@ -573,7 +662,7 @@ def toggle_like(item_type, item_id):
         return redirect(url_for('login'))
         
     if item_type not in ['post', 'comment']:
-        return redirect(url_for('index'))
+        return redirect(request.referrer or url_for('index'))
         
     conn = get_db_connection()
     user_id = session['user_id']
@@ -591,9 +680,18 @@ def toggle_like(item_type, item_id):
                      (user_id, item_type, item_id))
                      
     conn.commit()
-    conn.close()
     
-    return redirect(url_for('index'))
+    next_url = request.referrer or url_for('index')
+    if '#' in next_url:
+        next_url = next_url.split('#')[0]
+        
+    if item_type == 'comment':
+        post_id = conn.execute('SELECT post_id FROM comments WHERE id = ?', (item_id,)).fetchone()['post_id']
+        conn.close()
+        return redirect(next_url + f'#post-{post_id}')
+        
+    conn.close()
+    return redirect(next_url + f'#post-{item_id}')
 
 @app.route('/messages', defaults={'chat_username': None}, methods=('GET', 'POST'))
 @app.route('/messages/<chat_username>', methods=('GET', 'POST'))

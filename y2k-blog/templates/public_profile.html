@@ -101,13 +101,44 @@
             <p style="text-align: center; font-style: italic;">No posts yet! 🌸</p>
             {% else %}
             {% for post in posts %}
-            <div class="post">
+            <div class="post" id="post-{{ post['id'] }}">
                 <div class="post-header">
-                    <div class="post-author">
+                    <div class="post-author" style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap;">
                         <img src="{{ post['profile_picture'] }}" alt="avatar"
                             style="width: 30px; height: 30px; object-fit: cover;">
                         {{ post['display_name'] }}
                         <span style="font-weight: normal; font-size: 0.8rem;">(@{{ post['username'] }})</span>
+
+                        {% if session.get('user_id') and session['user_id'] != post['author_id'] %}
+                        <span style="display: flex; gap: 5px; align-items: center; margin-left: auto;">
+                            <a href="{{ url_for('messages', chat_username=post['username']) }}"
+                                class="social-btn msg-btn" title="Envoyer un message">
+                                <svg viewBox="0 0 24 24">
+                                    <path
+                                        d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z" />
+                                </svg>
+                            </a>
+                            <form action="{{ url_for('add_friend', target_id=post['author_id']) }}" method="POST"
+                                style="margin: 0;">
+                                <button type="submit" class="social-btn add-btn" title="Ajouter en ami">
+                                    <svg viewBox="0 0 24 24">
+                                        <path
+                                            d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                                    </svg>
+                                </button>
+                            </form>
+                            <form action="{{ url_for('block_user', target_id=post['author_id']) }}" method="POST"
+                                style="margin: 0;">
+                                <button type="submit" class="social-btn block-btn" title="Bloquer"
+                                    onclick="return confirm('Bloquer cet utilisateur ?');">
+                                    <svg viewBox="0 0 24 24">
+                                        <path
+                                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9C4.63 15.55 4 13.85 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1C19.37 8.45 20 10.15 20 12c0 4.42-3.58 8-8 8z" />
+                                    </svg>
+                                </button>
+                            </form>
+                        </span>
+                        {% endif %}
                     </div>
                     <div>
                         <span class="badge"
@@ -128,8 +159,30 @@
                 </div>
 
                 <div class="post-content">
+                    {% if post['image_url'] %}
+                    <div style="margin-bottom: 20px; text-align: center;">
+                        <img src="{{ post['image_url'] }}" alt="Post image"
+                            style="max-width: 100%; max-height: 400px; border-radius: 8px; border: 2px solid var(--border-color); object-fit: contain;">
+                    </div>
+                    {% endif %}
                     {{ post['content'] | safe }}
                 </div>
+
+                {% if session.get('role') == 'admin' %}
+                <div
+                    style="margin-top: 10px; margin-bottom: 5px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <form action="{{ url_for('delete_post', post_id=post['id']) }}" method="POST"
+                        style="display:inline;">
+                        <button type="submit" class="social-btn delete-btn"
+                            onclick="return confirm('Supprimer ce post ?');">
+                            <svg viewBox="0 0 24 24">
+                                <path
+                                    d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
+                            </svg> Delete Post
+                        </button>
+                    </form>
+                </div>
+                {% endif %}
             </div>
             {% endfor %}
             {% endif %}

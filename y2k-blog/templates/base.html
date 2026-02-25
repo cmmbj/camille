@@ -13,6 +13,15 @@
 <body>
     <div class="sparkle-bg"></div>
 
+    <!-- Cute Loading Screen -->
+    <div id="cute-loader">
+        <h1 class="loader-welcome">Welcome to Tessia's Diary ✨</h1>
+        <div style="margin-bottom: 50px;">
+            <progress id="y2k-progress" class="cute-progress" value="0" max="100"></progress>
+        </div>
+        <p class="loader-tip" id="loader-tip-text"></p>
+    </div>
+
     <header>
         <h1 class="logo">✨ Tessia's Diary ✨</h1>
         <nav>
@@ -62,16 +71,7 @@
             <h2>Nouveau Post</h2>
             <button class="close-btn" onclick="toggleSidebar()">✖</button>
         </div>
-        <form action="{{ url_for('new_post') }}" method="POST" class="sidebar-form">
-            <div class="form-group">
-                <label for="post_type">Type de post</label>
-                <select id="post_type" name="post_type" required>
-                    <option value="message">💬 Message</option>
-                    <option value="photo">📸 Photo</option>
-                    <option value="video">🎥 Vidéo</option>
-                    <option value="story">⏱ Story</option>
-                </select>
-            </div>
+        <form action="{{ url_for('new_post') }}" method="POST" class="sidebar-form" enctype="multipart/form-data">
             <div class="form-group">
                 <label for="visibility">Visibilité</label>
                 <select id="visibility" name="visibility" required>
@@ -80,21 +80,122 @@
                 </select>
             </div>
             <div class="form-group">
+                <label for="image">📸 Ajouter une image</label>
+                <div class="file-upload-wrapper">
+                    <input type="file" id="image" name="image" class="file-upload-input" accept="image/*">
+                    <div class="file-upload-design">
+                        <span class="upload-icon">📁</span>
+                        <p>Glisse ton image ici<br>ou clique pour choisir</p>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
                 <label for="content">Ton message</label>
-                <textarea id="content" name="content" required placeholder="Exprime-toi... (Markdown supporté !)"
+                <textarea id="content" name="content" placeholder="Exprime-toi... (Markdown supporté !)"
                     rows="6"></textarea>
             </div>
             <button type="submit" class="cute-btn" style="width: 100%;">Publier 💌</button>
         </form>
     </div>
+    {% endif %}
 
     <script>
+        // Cute Loader with Tips & Progress Bar (Runs Once Per Session)
+        document.addEventListener("DOMContentLoaded", function () {
+            const loader = document.getElementById('cute-loader');
+
+            // Check if user has already seen the loader this session
+            if (sessionStorage.getItem('loaderSeen') === 'true') {
+                if (loader) loader.style.display = 'none';
+                return;
+            }
+
+            // Mark loader as seen for this session
+            sessionStorage.setItem('loaderSeen', 'true');
+
+            const tips = [
+                "N'oublie pas de boire de l'eau ! 💧",
+                "Pense à liker les posts de tes amis 💖",
+                "Le savais-tu ? Tu peux ajouter des images à tes posts ! 📸",
+                "Reste focus, mais prends des pauses 🌸",
+                "Astuce : Sois gentil(le) dans les commentaires 💌",
+                "Personnalise ton profil pour le rendre unique ✨",
+                "Un message privé fait toujours plaisir 💬",
+                "Tessia's Diary est ton espace, sois creatif(ve) ! 🎨",
+                "N'hésite pas à partager tes morceaux de musique préférés 🎧",
+                "Un petit 'bonjour' peut refaire la journée de quelqu'un ☀️"
+            ];
+            const tipText = document.getElementById('loader-tip-text');
+            if (tipText) {
+                tipText.innerText = tips[Math.floor(Math.random() * tips.length)];
+            }
+
+            const progressBar = document.getElementById('y2k-progress');
+            let progress = 0;
+
+            function setProgress(val) {
+                if (progressBar) {
+                    progressBar.value = val;
+                }
+            }
+
+            // Fill the bar over ~2.5 seconds
+            const duration = 2500;
+            const intervalTime = 50;
+            const steps = duration / intervalTime;
+            const increment = 100 / steps;
+
+            const interval = setInterval(() => {
+                progress += increment;
+                if (progress >= 100) {
+                    progress = 100;
+                    clearInterval(interval);
+
+                    // Trigger the heart wipe out transition
+                    const loader = document.getElementById('cute-loader');
+                    if (loader) {
+                        loader.classList.add('heart-wipe-out');
+                        setTimeout(() => {
+                            loader.style.display = 'none';
+                        }, 1200); // 1.2s is the duration of the heart CSS transition
+                    }
+                }
+                setProgress(progress);
+            }, intervalTime);
+        });
+
+        // Auto-dismiss flashes after 6.5s
+        document.addEventListener('DOMContentLoaded', () => {
+            const flashes = document.querySelector('.flashes');
+            if (flashes) {
+                setTimeout(() => {
+                    flashes.style.transition = "opacity 0.5s ease";
+                    flashes.style.opacity = "0";
+                    setTimeout(() => flashes.remove(), 500);
+                }, 6500);
+            }
+        });
+
         function toggleSidebar() {
             var sidebar = document.getElementById("post-sidebar");
             sidebar.classList.toggle("open");
         }
+
+        // File upload dynamic text
+        document.addEventListener('DOMContentLoaded', () => {
+            const fileInput = document.getElementById('image');
+            if (fileInput) {
+                fileInput.addEventListener('change', function () {
+                    const textDisplay = this.nextElementSibling.querySelector('p');
+                    if (this.files && this.files.length > 0) {
+                        textDisplay.innerHTML = `Image sélectionnée :<br><strong>${this.files[0].name}</strong>`;
+                    } else {
+                        textDisplay.innerHTML = "Glisse ton image ici<br>ou clique pour choisir";
+                    }
+                });
+            }
+        });
     </script>
-    {% endif %}
 </body>
 
 </html>
